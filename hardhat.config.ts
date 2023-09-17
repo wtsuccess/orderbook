@@ -11,7 +11,6 @@ import "@openzeppelin/hardhat-upgrades";
 
 dotenv.config();
 const { PRIVATE_KEY, POLYGONSCAN_KEY } = process.env;
-console.log(POLYGONSCAN_KEY);
 
 // This is a sample Hardhat task. To learn how to create your own go to
 // https://hardhat.org/guides/create-task.html

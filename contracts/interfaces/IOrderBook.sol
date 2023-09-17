@@ -31,21 +31,16 @@ interface IOrderBook {
     }
 
     event OrderCanceled(
-        uint256 indexed orderId,
+        uint256 orderId,
         address indexed trader
     );
 
     event TradeExecuted(
-        uint256 indexed buyOrderId,
-        uint256 indexed sellOrderId,
+        uint256 buyOrderId,
+        uint256 sellOrderId,
         address indexed buyer,
-        address seller,
+        address indexed seller,
         uint256 price,
         uint256 quantity
-    );
-
-    event OrderReverted(
-        uint256 indexed orderId,
-        address indexed trader
     );
 }

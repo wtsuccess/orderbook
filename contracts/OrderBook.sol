@@ -94,6 +94,8 @@ contract OrderBook is Initializable, IOrderBook, OwnableUpgradeable, ReentrancyG
                 sellOrder.isFilled = true;
                 sellOrder.remainQuantity = 0;
                 sellOrder.lastTradeTimestamp = block.timestamp;
+
+                emit TradeExecuted(marketOrder.id, sellOrder.id, marketOrder.trader, marketOrder.trader, sellOrder.desiredPrice, sellOrder.remainQuantity);
             } else {
                 // partially fill sell limitOrder
                 // send matic to seller
@@ -109,6 +111,7 @@ contract OrderBook is Initializable, IOrderBook, OwnableUpgradeable, ReentrancyG
                 sellOrder.remainQuantity -= purchasedTokenAmount;
                 tokenAmount += purchasedTokenAmount;
                 sellOrder.lastTradeTimestamp = block.timestamp;
+                emit TradeExecuted(marketOrder.id, sellOrder.id, marketOrder.trader, marketOrder.trader, sellOrder.desiredPrice, purchasedTokenAmount);
                 break;
             }
         }
@@ -193,6 +196,7 @@ contract OrderBook is Initializable, IOrderBook, OwnableUpgradeable, ReentrancyG
                 buyOrder.remainMaticValue = 0;
                 buyOrder.remainQuantity = 0;
                 buyOrder.lastTradeTimestamp = block.timestamp;
+                emit TradeExecuted(buyOrder.id, marketOrder.id, buyOrder.trader, marketOrder.trader, buyOrder.desiredPrice, buyOrder.remainQuantity);
             } else {
                 // partially fill buy limitOrder
                 // send token to buyer
@@ -213,6 +217,7 @@ contract OrderBook is Initializable, IOrderBook, OwnableUpgradeable, ReentrancyG
                 maticAmount += usedMaticAmount;
                 buyOrder.lastTradeTimestamp = block.timestamp;
                 marketOrder.remainQuantity = 0;
+                emit TradeExecuted(buyOrder.id, marketOrder.id, buyOrder.trader, marketOrder.trader, buyOrder.desiredPrice, marketOrder.remainQuantity);
                 break;
             }
         }
@@ -368,6 +373,8 @@ contract OrderBook is Initializable, IOrderBook, OwnableUpgradeable, ReentrancyG
 
             sellOrder.remainQuantity -= tokenAmount;
             sellOrder.lastTradeTimestamp = block.timestamp;
+
+            emit TradeExecuted(buyOrder.id, sellOrder.id, buyOrder.trader, sellOrder.trader, sellOrder.desiredPrice, tokenAmount);
 
             if (buyOrder.remainQuantity == 0) {
                 buyOrder.isFilled = true;
@@ -568,6 +575,8 @@ contract OrderBook is Initializable, IOrderBook, OwnableUpgradeable, ReentrancyG
                 order.remainQuantity
             );
         }
+
+        emit OrderCanceled(id, order.trader);
 
         return true;
     }
