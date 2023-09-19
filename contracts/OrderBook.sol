@@ -119,7 +119,8 @@ contract OrderBook is Initializable, IOrderBook, OwnableUpgradeable, ReentrancyG
 
         if (marketOrder.remainMaticValue > 0) {
             // In this case, sell token supply is insufficient than buy matic amount, so revert
-            revert("Insufficient Token Supply");
+            // revert("Insufficient Token Supply");
+            payable(msg.sender).transfer(marketOrder.remainMaticValue);
         }
 
         fullfilledOrders.push(marketOrder);
@@ -225,7 +226,8 @@ contract OrderBook is Initializable, IOrderBook, OwnableUpgradeable, ReentrancyG
 
         if (marketOrder.remainQuantity > 0) {
             // In this case, buy token supply is insufficient than buy matic amount, so revert
-            revert("Insufficient market Supply");
+            // revert("Insufficient market Supply");
+            IERC20(tokenAddress).transfer(msg.sender, marketOrder.remainQuantity);
         }
 
         fullfilledOrders.push(marketOrder);
@@ -256,9 +258,12 @@ contract OrderBook is Initializable, IOrderBook, OwnableUpgradeable, ReentrancyG
     ) external payable {
         if (orderType == OrderType.BUY) {
             require(
-                msg.value == desiredPrice * quantity / 10 ** price_decimals,
+                msg.value >= desiredPrice * quantity / 10 ** price_decimals,
                 "Invalid matic amount"
             );
+            if (msg.value > desiredPrice * quantity) {
+                payable(msg.sender).transfer(msg.value - desiredPrice * quantity / 10 ** price_decimals);
+            }
         } else {
             require(msg.value == 0, "Invalid matic amount for createLimitSellOrder");
             IERC20Upgradeable(tokenAddress).safeTransferFrom(
@@ -455,19 +460,23 @@ contract OrderBook is Initializable, IOrderBook, OwnableUpgradeable, ReentrancyG
         (, uint256 price) = IOracle(oracle).getLatestRoundData();
 
         if (orderType == OrderType.BUY) {
+            uint returnLength = depth;
             Order[] memory bestActiveBuyOrders = new Order[](depth);
             if (depth >= activeBuyOrders.length) {
                 return (price, activeBuyOrders);
             }
+            
             for (
                 uint256 i = activeBuyOrders.length - 1;
                 i >= activeBuyOrders.length - depth;
                 i--
             ) {
-                bestActiveBuyOrders[i] = activeBuyOrders[i];
+                bestActiveBuyOrders[returnLength - 1] = activeBuyOrders[i];
+                returnLength--;
             }
             return (price, bestActiveBuyOrders);
         } else {
+            uint returnLength = depth;
             Order[] memory bestActiveSellOrders = new Order[](depth);
             if (depth >= activeSellOrders.length) {
                 return (price, activeSellOrders);
@@ -477,14 +486,15 @@ contract OrderBook is Initializable, IOrderBook, OwnableUpgradeable, ReentrancyG
                 i >= activeSellOrders.length - depth;
                 i--
             ) {
-                bestActiveSellOrders[i] = activeBuyOrders[i];
+                bestActiveSellOrders[returnLength - 1] = activeBuyOrders[i];
+                returnLength--;
             }
             return (price, bestActiveSellOrders);
         }
     }
 
     function getOrderById(uint256 id) public view returns (Order memory) {
-       require(id > 0 && id < nonce, "Invalid Id");
+       require(id < nonce, "Invalid Id");
        for (uint256 i = 0; i < activeBuyOrders.length; i ++) {
             Order memory order = activeBuyOrders[i];
             if ( id == order.id) {
@@ -584,7 +594,7 @@ contract OrderBook is Initializable, IOrderBook, OwnableUpgradeable, ReentrancyG
         return true;
     }
 
-    function getIndex(uint256 id) public view returns (OrderType, uint256) {
+    function getIndex(uint256 id) internal view returns (OrderType, uint256) {
         for (uint256 i = 0; i < activeBuyOrders.length; i ++) {
             Order memory order = activeBuyOrders[i];
             if ( id == order.id ) {
