@@ -296,6 +296,8 @@ contract OrderBook is Initializable, IOrderBook, OwnableUpgradeable, ReentrancyG
             insertSellLimitOrder(newOrder);
         }
 
+        cleanLimitOrders();
+        
         if (activeBuyOrders.length > 0 && activeSellOrders.length > 0) {
             executeLimitOrders();
         }
