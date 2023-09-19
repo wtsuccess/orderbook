@@ -70,8 +70,8 @@ contract OrderBook is Initializable, IOrderBook, OwnableUpgradeable, ReentrancyG
         uint256 tokenAmount = 0;
         require(activeSellOrders.length > 0, "Insufficient SellOrders");
 
-        for (uint256 i = activeSellOrders.length - 1; i >= 0; i--) {
-            Order storage sellOrder = activeSellOrders[i];
+        for (uint256 i = activeSellOrders.length; i > 0; i--) {
+            Order storage sellOrder = activeSellOrders[i - 1];
             if (isInvalidOrder(sellOrder)) {
                 // remove expired sell orders from active sell order list
                 // removeLastFromSellLimitOrder();
@@ -135,9 +135,11 @@ contract OrderBook is Initializable, IOrderBook, OwnableUpgradeable, ReentrancyG
     }
 
     function removeLastFromSellLimitOrder() internal {
-        Order memory lastOrder = activeSellOrders[activeSellOrders.length - 1];
-        activeSellOrders.pop();
-        fullfilledOrders.push(lastOrder);
+        if (activeSellOrders.length > 0) {
+            Order memory lastOrder = activeSellOrders[activeSellOrders.length - 1];
+            activeSellOrders.pop();
+            fullfilledOrders.push(lastOrder);
+        }
     }
 
     /**
@@ -168,8 +170,8 @@ contract OrderBook is Initializable, IOrderBook, OwnableUpgradeable, ReentrancyG
 
         uint256 maticAmount = 0;
         require(activeBuyOrders.length > 0, "Insufficient BuyOrders");
-        for (uint256 i = activeBuyOrders.length - 1; i >= 0; i--) {
-            Order storage buyOrder = activeBuyOrders[i];
+        for (uint256 i = activeBuyOrders.length; i > 0; i--) {
+            Order storage buyOrder = activeBuyOrders[i - 1];
             if (isInvalidOrder(buyOrder)) {
                 // remove expired buy orders from active buy order list
                 // removeLastFromBuyLimitOrder();
@@ -227,7 +229,7 @@ contract OrderBook is Initializable, IOrderBook, OwnableUpgradeable, ReentrancyG
         if (marketOrder.remainQuantity > 0) {
             // In this case, buy token supply is insufficient than buy matic amount, so revert
             // revert("Insufficient market Supply");
-            IERC20Upgradeable(tokenAddress).transfer(msg.sender, marketOrder.remainQuantity);
+            IERC20Upgradeable(tokenAddress).safeTransfer(msg.sender, marketOrder.remainQuantity);
         }
 
         fullfilledOrders.push(marketOrder);
@@ -242,9 +244,11 @@ contract OrderBook is Initializable, IOrderBook, OwnableUpgradeable, ReentrancyG
     }
 
     function removeLastFromBuyLimitOrder() internal {
-        Order memory lastOrder = activeBuyOrders[activeBuyOrders.length - 1];
-        activeBuyOrders.pop();
-        fullfilledOrders.push(lastOrder);
+        if (activeBuyOrders.length > 0) {
+            Order memory lastOrder = activeBuyOrders[activeBuyOrders.length - 1];
+            activeBuyOrders.pop();
+            fullfilledOrders.push(lastOrder);
+        }
     }
 
     /**
