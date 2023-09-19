@@ -227,7 +227,7 @@ contract OrderBook is Initializable, IOrderBook, OwnableUpgradeable, ReentrancyG
         if (marketOrder.remainQuantity > 0) {
             // In this case, buy token supply is insufficient than buy matic amount, so revert
             // revert("Insufficient market Supply");
-            IERC20(tokenAddress).transfer(msg.sender, marketOrder.remainQuantity);
+            IERC20Upgradeable(tokenAddress).transfer(msg.sender, marketOrder.remainQuantity);
         }
 
         fullfilledOrders.push(marketOrder);
