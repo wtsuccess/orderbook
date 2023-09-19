@@ -33,6 +33,7 @@ contract OrderBook is Initializable, IOrderBook, OwnableUpgradeable, ReentrancyG
     mapping(address => uint256) public OrderCountByUser; // Add Count
 
     function initialize(address _token, address _treasury, address _oracle) public initializer {
+        __Ownable_init();
         require(_token != address(0), "Invalid Token");
         require(_treasury != address(0), "Invalid Token");
         require(_oracle != address(0), "Invalid Token");
@@ -297,7 +298,7 @@ contract OrderBook is Initializable, IOrderBook, OwnableUpgradeable, ReentrancyG
         }
 
         cleanLimitOrders();
-        
+
         if (activeBuyOrders.length > 0 && activeSellOrders.length > 0) {
             executeLimitOrders();
         }
