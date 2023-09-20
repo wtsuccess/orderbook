@@ -408,7 +408,7 @@ contract OrderBook is Initializable, IOrderBook, OwnableUpgradeable, ReentrancyG
         }
     }
 
-    function isInvalidOrder(Order memory order) public view returns (bool) {
+    function isInvalidOrder(Order memory order) internal view returns (bool) {
         return
             order.isCanceled ||
             order.isFilled ||
