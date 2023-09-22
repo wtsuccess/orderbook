@@ -11,6 +11,7 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 
 import {IOrderBook} from "./interfaces/IOrderBook.sol";
 import {IOracle} from "./interfaces/IOracle.sol";
+import "./interfaces/IACME.sol";
 
 contract OrderBook is Initializable, IOrderBook, OwnableUpgradeable, ReentrancyGuardUpgradeable {
     using SafeERC20Upgradeable for IERC20Upgradeable;
@@ -20,7 +21,6 @@ contract OrderBook is Initializable, IOrderBook, OwnableUpgradeable, ReentrancyG
     Order[] public fullfilledOrders;
 
     address public tokenAddress;
-
     uint256 public nonce;
     uint256 private constant BASE_BIPS = 10000;
     uint256 public buyFeeBips;
@@ -86,7 +86,9 @@ contract OrderBook is Initializable, IOrderBook, OwnableUpgradeable, ReentrancyG
                 // send matic to seller
                 (uint256 realAmount, uint256 feeAmount) = getAmountDeductFee(desiredMaticValue, OrderType.SELL);
                 payable(sellOrder.trader).transfer(realAmount);
-                payable(treasury).transfer(feeAmount); // charge fee
+                if (feeAmount > 0) {
+                    payable(treasury).transfer(feeAmount); // charge fee
+                }
 
                 // decrease remain matic value
                 marketOrder.remainMaticValue -= desiredMaticValue;
@@ -103,7 +105,9 @@ contract OrderBook is Initializable, IOrderBook, OwnableUpgradeable, ReentrancyG
 
                 (uint256 realAmount, uint256 feeAmount) = getAmountDeductFee(marketOrder.remainMaticValue, OrderType.SELL);
                 payable(sellOrder.trader).transfer(realAmount);
-                payable(treasury).transfer(feeAmount);
+                if (feeAmount > 0) {
+                    payable(treasury).transfer(feeAmount);
+                }
 
                 uint256 purchasedTokenAmount = marketOrder.remainMaticValue * 10 ** price_decimals /
                     sellOrder.desiredPrice;
@@ -129,8 +133,9 @@ contract OrderBook is Initializable, IOrderBook, OwnableUpgradeable, ReentrancyG
         // transfer token to buyer
         (uint256 _realAmount, uint256 _feeAmount) = getAmountDeductFee(tokenAmount, OrderType.BUY);
         IERC20Upgradeable(tokenAddress).safeTransfer(msg.sender, _realAmount);
-        IERC20Upgradeable(tokenAddress).safeTransfer(treasury, _feeAmount);
-
+        if (_feeAmount > 0) {
+            IERC20Upgradeable(tokenAddress).safeTransfer(treasury, _feeAmount);
+        }
         OrderCountByUser[msg.sender]++;
     }
 
@@ -188,10 +193,12 @@ contract OrderBook is Initializable, IOrderBook, OwnableUpgradeable, ReentrancyG
                     buyOrder.trader,
                     realAmount
                 );
-                IERC20Upgradeable(tokenAddress).safeTransfer(
-                    treasury,
-                    feeAmount
-                );
+                if (feeAmount > 0) {
+                    IERC20Upgradeable(tokenAddress).safeTransfer(
+                        treasury,
+                        feeAmount
+                    );
+                }
                 // decrease remain token amount
                 marketOrder.remainQuantity -= desiredTokenAmount;
                 maticAmount += buyOrder.remainMaticValue;
@@ -209,10 +216,12 @@ contract OrderBook is Initializable, IOrderBook, OwnableUpgradeable, ReentrancyG
                     buyOrder.trader,
                     realAmount 
                 );
-                IERC20Upgradeable(tokenAddress).safeTransfer(
-                    buyOrder.trader,
-                    feeAmount 
-                );
+                if (feeAmount > 0) {
+                    IERC20Upgradeable(tokenAddress).safeTransfer(
+                        buyOrder.trader,
+                        feeAmount 
+                    );
+                }
                 uint256 usedMaticAmount = marketOrder.remainQuantity *
                     buyOrder.desiredPrice / 10 ** price_decimals;
                 // decrease remain token amount of sell limitOrder
@@ -238,7 +247,9 @@ contract OrderBook is Initializable, IOrderBook, OwnableUpgradeable, ReentrancyG
         // transfer token to buyer
         (uint256 _realAmount, uint256 _feeAmount) = getAmountDeductFee(maticAmount, OrderType.SELL);
         payable(msg.sender).transfer(_realAmount);
-        payable(treasury).transfer(_feeAmount);
+        if (_feeAmount > 0) {
+            payable(treasury).transfer(_feeAmount);
+        }
 
         OrderCountByUser[msg.sender]++;
     }
@@ -373,7 +384,9 @@ contract OrderBook is Initializable, IOrderBook, OwnableUpgradeable, ReentrancyG
             // send matic to seller
             (uint256 realAmount, uint256 feeAmount) = getAmountDeductFee(sellerDesiredMaticAmount, OrderType.SELL);
             payable(sellOrder.trader).transfer(realAmount);
-            payable(treasury).transfer(feeAmount);
+            if (feeAmount > 0) {
+                payable(treasury).transfer(feeAmount);
+            }
             // decrease remain matic value
             buyOrder.remainMaticValue -= sellerDesiredMaticAmount;
             buyOrder.remainQuantity -= tokenAmount;
@@ -381,7 +394,9 @@ contract OrderBook is Initializable, IOrderBook, OwnableUpgradeable, ReentrancyG
 
             (uint256 _realAmount, uint256 _feeAmount) = getAmountDeductFee(tokenAmount, OrderType.BUY);
             IERC20Upgradeable(tokenAddress).safeTransfer(buyOrder.trader, _realAmount);
-            IERC20Upgradeable(tokenAddress).safeTransfer(treasury, _feeAmount);
+            if (_feeAmount > 0) {
+                IERC20Upgradeable(tokenAddress).safeTransfer(treasury, _feeAmount);
+            }
 
             sellOrder.remainQuantity -= tokenAmount;
             sellOrder.lastTradeTimestamp = block.timestamp;
@@ -397,12 +412,10 @@ contract OrderBook is Initializable, IOrderBook, OwnableUpgradeable, ReentrancyG
                     );
                     buyOrder.remainMaticValue = 0;
                 }
-                // fullfilledOrders.push(buyOrder);
                 removeLastFromBuyLimitOrder();
             }
             if (sellOrder.remainQuantity == 0) {
                 sellOrder.isFilled = true;
-                // fullfilledOrders.push(sellOrder);
                 removeLastFromSellLimitOrder();
             }
         }
@@ -412,6 +425,7 @@ contract OrderBook is Initializable, IOrderBook, OwnableUpgradeable, ReentrancyG
         return
             order.isCanceled ||
             order.isFilled ||
+            IACME(tokenAddress).isBlacklisted(order.trader) ||
             order.timeInForce < block.timestamp ||
             order.remainQuantity == 0;
     }
@@ -580,7 +594,7 @@ contract OrderBook is Initializable, IOrderBook, OwnableUpgradeable, ReentrancyG
         require(id < nonce, "Invalid Id");
         (OrderType orderType, uint256 i) = getIndex(id);
         Order storage order = orderType == OrderType.BUY ? activeBuyOrders[i] : activeSellOrders[i];
-        require(order.trader == msg.sender, "Not owner of Order");
+        require(order.trader == msg.sender || order.trader == owner(), "You can't cancel order");
 
         order.isCanceled = true;
 
